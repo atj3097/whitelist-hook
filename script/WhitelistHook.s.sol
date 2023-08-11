@@ -8,33 +8,32 @@ import {IPoolManager} from "@uniswap/v4-core/contracts/interfaces/IPoolManager.s
 import {PoolModifyPositionTest} from "@uniswap/v4-core/contracts/test/PoolModifyPositionTest.sol";
 import {PoolSwapTest} from "@uniswap/v4-core/contracts/test/PoolSwapTest.sol";
 import {PoolDonateTest} from "@uniswap/v4-core/contracts/test/PoolDonateTest.sol";
-import {Counter} from "../src/Counter.sol";
-import {CounterImplementation} from "../test/implementation/CounterImplementation.sol";
+import {WhitelistHook} from "../src/WhitelistHook.sol";
+import {WhitelistHookImplementation} from "../test/implementation/WhitelistHookImplementation.sol";
 
 /// @notice Forge script for deploying v4 & hooks to **anvil**
 /// @dev This script only works on an anvil RPC because v4 exceeds bytecode limits
 /// @dev and we also need vm.etch() to deploy the hook to the proper address
-contract CounterScript is Script {
+contract WhitelistHookScript is Script {
     function setUp() public {}
 
     function run() public {
         vm.broadcast();
         PoolManager manager = new PoolManager(500000);
 
-        // uniswap hook addresses must have specific flags encoded in the address
-        // (attach 0x1 to avoid collisions with other hooks)
-        uint160 targetFlags = uint160(Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | 0x1);
+        // Uniswap hook addresses must have specific flags encoded in the address
+        uint160 targetFlags = uint160(Hooks.BEFORE_MODIFY_POSITION_FLAG | Hooks.BEFORE_SWAP_FLAG | 0x1);
 
         // TODO: eventually use bytecode to deploy the hook with create2 to mine proper addresses
-        // bytes memory hookBytecode = abi.encodePacked(type(Counter).creationCode, abi.encode(address(manager)));
+        // bytes memory hookBytecode = abi.encodePacked(type(WhitelistHook).creationCode, abi.encode(address(manager)));
 
         // TODO: eventually we'll want to use `uint160 salt` in the return create2 deploy the hook
         // (address hook,) = mineSalt(targetFlags, hookBytecode);
-        // require(uint160(hook) & targetFlags == targetFlags, "CounterScript: could not find hook address");
+        // require(uint160(hook) & targetFlags == targetFlags, "WhitelistHookScript: could not find hook address");
 
         vm.broadcast();
         // until i figure out create2 deploys on an anvil RPC, we'll use the etch cheatcode
-        CounterImplementation impl = new CounterImplementation(manager, Counter(address(targetFlags)));
+        WhitelistHookImplementation impl = new WhitelistHookImplementation(manager, WhitelistHook(address(targetFlags)));
         etchHook(address(impl), address(targetFlags));
 
         vm.startBroadcast();
@@ -44,6 +43,7 @@ contract CounterScript is Script {
         new PoolDonateTest(IPoolManager(address(manager)));
         vm.stopBroadcast();
     }
+
 
     function mineSalt(uint160 targetFlags, bytes memory creationCode)
         internal
